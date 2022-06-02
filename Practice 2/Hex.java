@@ -10,10 +10,12 @@ public class Hex{
     private int bytesNumber;
     boolean checkValue(String sample){
         if (sample.length() < 3) return false;  // 3 is the minimal possible length: 0x0
+        if (sample.length() % 2 == 1) return false; // we can examine only full byte sequences
         if (!(sample.charAt(0) == '0' && sample.charAt(1) == 'x')) return false;  // valid predicate assertion
         try{
             // using built-in tool to make sure it contains only hexadecimal symbols
             BigInteger number = new BigInteger(sample.substring(2), 16);
+
             return true;
         }
         catch (NumberFormatException nfe){
