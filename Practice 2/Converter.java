@@ -14,10 +14,22 @@ public class Converter {
     public Representation HexToLittleEndian(Hex sample){
         Representation result = new Representation("little");
 
-        for (int i = 0; i != sample.value.length(); ++i){
-            BigInteger term1 = BigInteger.valueOf(TRANSLATOR.get(sample.value.charAt(i)));
-            BigInteger term2 = BigInteger.valueOf(16).pow(i);
-            result.value = result.value.add(term1.multiply(term2));
+        // byte consists of two hex values, so we'll divide on pairs,
+        // because we are swapping order:
+        for (int i = 0; i < sample.value.length(); i += 2){
+
+            BigInteger hex1 = BigInteger.valueOf(TRANSLATOR.get(sample.value.charAt(i)));
+            BigInteger baseWeight1 = BigInteger.valueOf(16).pow(i+1);
+
+            BigInteger hex2 = BigInteger.valueOf(TRANSLATOR.get(sample.value.charAt(i+1)));
+            BigInteger baseWeight2 = BigInteger.valueOf(16).pow(i);
+
+            BigInteger term1 = hex1.multiply(baseWeight1);
+            BigInteger term2 = hex2.multiply(baseWeight2);
+
+            BigInteger hexPair = term1.add(term2); // full byte
+
+            result.value = result.value.add(hexPair);
         }
 
         return result;
@@ -41,7 +53,7 @@ public class Converter {
             sample.value = sample.value.divide(BigInteger.valueOf(16));
             String digit;
             digit = (remainder <= 9 ) ? Character.toString((char)(48 + remainder)) // 48 - ascii 0 code
-                    : Character.toString((char)(55 + remainder)); // minimum remainder = 10, ergo 55 + 10 = 65 - ascii A code
+                                      : Character.toString((char)(55 + remainder)); // minimum remainder = 10, ergo 55 + 10 = 65 - ascii A code
             result.value += digit;
         }while(!Objects.equals(sample.value, BigInteger.ZERO));
         result.calculateBytesNumber();
