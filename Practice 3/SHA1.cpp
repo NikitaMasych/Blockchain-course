@@ -164,5 +164,3 @@ SHA1::SHA1(){
     enterValue();
     calculateHash();
 }
-// 496a7fde5ae37c4ca1e34914005d8c9e8c40aa3a
-// a27934d24862d350e43c091ae7b3bee3c175a6a
