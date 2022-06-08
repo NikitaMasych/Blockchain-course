@@ -175,7 +175,6 @@ void SHA1::calculateHash(){
 
 void SHA1::outputHash(){
     std::cout << "For the given value, hash is: \n" <<  hashValue;
-    std::cout << '\n' << hashValue.length();
 }
 
 void SHA1::enterValue(){
