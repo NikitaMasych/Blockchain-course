@@ -1,8 +1,7 @@
 #include <iostream>
 #include <iomanip>
-#include "SHA1.h"
-#include <bitset>
 #include <algorithm>
+#include "SHA1.h"
 
 
 int_fast32_t binaryRepresentation(std::vector<unsigned char> str){
@@ -18,7 +17,7 @@ uint_fast32_t leftRotate(uint_fast32_t a, unsigned int c){
 
 std::vector<unsigned char> slice(std::vector<unsigned char> const &v,
                                  size_t m, size_t n){
-    // gets vector slice from [m,n)
+    // gets vector v slice from [m,n)
     auto first = v.cbegin() + m;
     auto last =  v.cbegin() + n;
 
@@ -44,7 +43,7 @@ std::string stringRepresentation(uint_fast32_t a){
 std::string hashLinker(uint_fast32_t h0, uint_fast32_t h1,
                        uint_fast32_t h2, uint_fast32_t h3,
                        uint_fast32_t h4){
-    // generates hexadecimal string as hashing result
+    // generates hexadecimal string as a hashing result
     std::string res = "";
     res += stringRepresentation(h1);
     res += stringRepresentation(h1);
@@ -57,7 +56,6 @@ std::string hashLinker(uint_fast32_t h0, uint_fast32_t h1,
 std::vector <uint_fast32_t> SHA1::wordsGenerator(const size_t& pos){
     std::vector <uint_fast32_t> words;
     // get 16 words 4 character each = 32 bites
-
     for(size_t i = 0; i != 64; i += 4){
         uint_fast32_t word = binaryRepresentation(slice(value, pos+i, pos+i+4));
         words.push_back(word);
