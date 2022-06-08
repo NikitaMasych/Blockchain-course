@@ -157,16 +157,6 @@ void SHA1::generateLastChunk(){
     for (unsigned char c: l) value.push_back(c);
 }
 
-void SHA1::test(){
-    int counter = 0;
-    std::cout << "Length of string is: " << value.size() * 8 << '\n';
-    for (auto &c : value){
-        std::cout << std::setw(10) << std::bitset<8>(c);
-        counter ++;
-        if (counter % 8 == 0) std::cout << '\n';
-    }
-}
-
 void SHA1::calculateHash(){
     uint_fast32_t h0, h1, h2, h3, h4;
     h0 = 0x67452301;
