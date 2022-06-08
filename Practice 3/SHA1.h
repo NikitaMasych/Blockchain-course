@@ -6,12 +6,13 @@
 class SHA1{
     private:
         std::string hashValue;
-        std::string value;
-        std::vector <uint_fast32_t> wordsGenerator(size_t &pos);
+        std::vector<unsigned char> value;
+        std::vector <uint_fast32_t> wordsGenerator(const size_t& pos);
         void generateLastChunk();
         void HashForChunk(uint_fast32_t& h0, uint_fast32_t&  h1,
                           uint_fast32_t& h2, uint_fast32_t&  h3,
-                          uint_fast32_t& h4, size_t& pos);
+                          uint_fast32_t& h4, const size_t& pos);
+        void test();
     public:
         SHA1();
         void enterValue();
