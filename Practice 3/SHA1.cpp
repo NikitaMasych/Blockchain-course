@@ -1,10 +1,11 @@
 #include <iostream>
 #include <iomanip>
-#include <algorithm>
 #include "SHA1.h"
+#include <bitset>
+#include <algorithm>
 
 
-int_fast32_t binaryRepresentation(std::vector<unsigned char> str){
+uint_fast32_t binaryRepresentation(std::vector<unsigned char> str){
     // converts 4 symbol string to 32 binary
     return (int(str[0]) << 24) | (int(str[1]) << 16) | (int(str[2]) << 8) | int(str[3]);
 };
@@ -43,9 +44,9 @@ std::string stringRepresentation(uint_fast32_t a){
 std::string hashLinker(uint_fast32_t h0, uint_fast32_t h1,
                        uint_fast32_t h2, uint_fast32_t h3,
                        uint_fast32_t h4){
-    // generates hexadecimal string as a hashing result
+    // generates hexadecimal string as hashing result
     std::string res = "";
-    res += stringRepresentation(h1);
+    res += stringRepresentation(h0);
     res += stringRepresentation(h1);
     res += stringRepresentation(h2);
     res += stringRepresentation(h3);
@@ -82,19 +83,21 @@ void processVals(uint_fast32_t& a, uint_fast32_t& b,
             k = 0x6ED9EBA1;
         }
         else if (i < 60){
-            f = (b | c) | (b & d) | (c & d);
+            f = (b & c) | (b & d) | (c & d);
             k = 0x8F1BBCDC;
         }
         else{
             f = b ^ c ^ d;
             k = 0xCA62C1D6;
         }
+
         uint_fast32_t temp = leftRotate(a, 5) + f + e + k + words[i];
         e = d;
         d = c;
         c = leftRotate(b, 30);
         b = a;
         a = temp;
+
     }
 
 }
@@ -120,6 +123,7 @@ void SHA1::HashForChunk(uint_fast32_t& h0, uint_fast32_t&  h1,
     h2 = h2 + c;
     h3 = h3 + d;
     h4 = h4 + e;
+
 }
 
 std::string stringRepresentation2(uint_fast32_t a){
@@ -165,12 +169,14 @@ void SHA1::calculateHash(){
 
     size_t pos = 0;
     generateLastChunk();
-    //test();
+
     while (pos < value.size()){
         HashForChunk(h0, h1, h2, h3, h4, pos);
         pos += 64;
     }
+
     hashValue = hashLinker(h0, h1, h2, h3, h4);
+
 }
 
 void SHA1::outputHash(){
