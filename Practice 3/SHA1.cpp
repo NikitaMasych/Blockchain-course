@@ -172,22 +172,22 @@ void SHA1::calculateHash(){
     hashValue = hashLinker(h0, h1, h2, h3, h4);
 }
 
-void SHA1::outputHash(){
-    std::cout << "For the given value, hash is: \n" <<  hashValue;
-}
-
 void SHA1::enterValue(){
-    std::cout << "Enter value: ";
-    std::string inp;
-    std::getline(std::cin, inp);
-    for (unsigned char c: inp) value.push_back(c);
+    std::cout << "Enter ASCII string to hash: ";
+    std::string str;
+    std::getline(std::cin, str);
+    for (unsigned char c: str) {
+        // check whether symbol is not ASCII:
+        if (c > 127){
+            std::cout << "Inappropriate input!\n";
+            value.clear();
+            enterValue();
+            break;
+        }
+        value.push_back(c);
+    }
 }
 
 std::string SHA1::getHash(){
     return hashValue;
-}
-
-SHA1::SHA1(){
-    enterValue();
-    calculateHash();
 }
