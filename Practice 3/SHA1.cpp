@@ -1,8 +1,7 @@
 #include <iostream>
 #include <iomanip>
-#include "SHA1.h"
-#include <bitset>
 #include <algorithm>
+#include "SHA1.h"
 
 
 uint_fast32_t binaryRepresentation(std::vector<unsigned char> str){
@@ -97,7 +96,6 @@ void processVals(uint_fast32_t& a, uint_fast32_t& b,
         c = leftRotate(b, 30);
         b = a;
         a = temp;
-
     }
 
 }
@@ -123,7 +121,7 @@ void SHA1::HashForChunk(uint_fast32_t& h0, uint_fast32_t&  h1,
     h2 = h2 + c;
     h3 = h3 + d;
     h4 = h4 + e;
-
+        
 }
 
 std::string stringRepresentation2(uint_fast32_t a){
@@ -145,7 +143,8 @@ void SHA1::generateLastChunk(){
     size_t zerosAmount;
     size_t non512Characters = value.size() % 64;
 
-    if (non512Characters <= 55) zerosAmount = 448 - non512Characters * 8;
+    if (non512Characters <= 56) zerosAmount = 448 - non512Characters * 8; // including "0b10000000"
+    else if (non512Characters < 64) zerosAmount = 512 - (non512Characters) * 8 + 512 - 64;
     else zerosAmount = (64 - non512Characters - 1) * 8 + (512 - 64);
 
     for (size_t i = 0; i < zerosAmount; i += 8)
@@ -169,14 +168,12 @@ void SHA1::calculateHash(){
 
     size_t pos = 0;
     generateLastChunk();
-
+    
     while (pos < value.size()){
         HashForChunk(h0, h1, h2, h3, h4, pos);
         pos += 64;
     }
-
     hashValue = hashLinker(h0, h1, h2, h3, h4);
-
 }
 
 void SHA1::outputHash(){
