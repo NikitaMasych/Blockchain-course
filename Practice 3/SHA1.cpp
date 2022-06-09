@@ -74,7 +74,7 @@ void processVals(uint_fast32_t& a, uint_fast32_t& b,
     for (size_t i = 0; i != 80; ++i){
         uint_fast32_t k, f;
         if (i < 20){
-            f = (b & c) | ((!b) & d);
+            f = (b & c) | ((~b) & d);
             k = 0x5A827999;
         }
         else if (i < 40){
