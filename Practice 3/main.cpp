@@ -5,7 +5,7 @@
 int main()
 {
     SHA1 instance;
-    instance.enterValue();
+    instance.enterMessage();
     auto start = std::chrono::high_resolution_clock::now();
     instance.calculateHash();
     auto stop = std::chrono::high_resolution_clock::now();
