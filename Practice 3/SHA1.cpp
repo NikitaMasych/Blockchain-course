@@ -63,7 +63,7 @@ std::vector <uint_fast32_t> SHA1::messageSchedule(const size_t& pos){
     std::vector <uint_fast32_t> words;
     // get 16 words 4 character each = 32 bites
     for(size_t i = 0; i != 64; i += 4){
-        uint_fast32_t word = binaryNumber(slice(value, pos+i, pos+i+4));
+        uint_fast32_t word = binaryNumber(slice(message, pos+i, pos+i+4));
         words.push_back(word);
     }
     // get another 64 words based on those 16
@@ -133,12 +133,12 @@ void SHA1::hashForChunk(uint_fast32_t& h0, uint_fast32_t&  h1,
 }
 
 void SHA1::messageProcessing(){
-    // due to storing value in chars, which are one byte
+    // due to storing message in chars, which are one byte
     // adding 1 is possible only as whole 0b10000000
-    value.push_back(static_cast<unsigned char>(0b10000000));
+    message.push_back(static_cast<unsigned char>(0b10000000));
 
     size_t zerosAmount;
-    size_t non512Characters = value.size() % 64; // including "0b10000000"
+    size_t non512Characters = message.size() % 64; // including "0b10000000"
 
     // if enough space without additional block
     if (non512Characters <= 56) zerosAmount = 448 - non512Characters * 8;
@@ -147,12 +147,12 @@ void SHA1::messageProcessing(){
                      + 512 - 64;                    // in additional
 
     for (size_t i = 0; i != zerosAmount; i += 8)
-        value.push_back(static_cast<unsigned char>(0b00000000));
+        message.push_back(static_cast<unsigned char>(0b00000000));
 
     // 64 bit length of the initial message
-    uint_fast64_t len = (value.size() - 1) * 8 - zerosAmount; // in bits
+    uint_fast64_t len = (message.size() - 1) * 8 - zerosAmount; // in bits
     std::string l = binaryString(len);
-    for (unsigned char c: l) value.push_back(c);
+    for (unsigned char c: l) message.push_back(c);
 }
 
 void SHA1::calculateHash(){
@@ -166,13 +166,13 @@ void SHA1::calculateHash(){
     messageProcessing();
 
     // 512 bit chunk consists of 64 characters, therefore:
-    for (size_t pos = 0; pos != value.size(); pos += 64)
+    for (size_t pos = 0; pos != message.size(); pos += 64)
         hashForChunk(h0, h1, h2, h3, h4, pos);
 
-    hashValue = hashLinker(h0, h1, h2, h3, h4);
+    messageDigest = hashLinker(h0, h1, h2, h3, h4);
 }
 
-void SHA1::enterValue(){
+void SHA1::enterMessage(){
     std::cout << "Enter ASCII string to hash: ";
     std::string str;
     std::getline(std::cin, str);
@@ -180,14 +180,14 @@ void SHA1::enterValue(){
         // check whether symbol is not ASCII:
         if (c > 127){
             std::cout << "Inappropriate input!\n";
-            value.clear();
-            enterValue();
+            message.clear();
+            enterMessage();
             break;
         }
-        value.push_back(c);
+        message.push_back(c);
     }
 }
 
 std::string SHA1::getHash(){
-    return hashValue;
+    return messageDigest;
 }
