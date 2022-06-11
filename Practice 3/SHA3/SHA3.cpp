@@ -1,4 +1,6 @@
 #include <iostream>
+#include <iomanip>
+#include <bitset>
 #include "SHA3.h"
 
 
@@ -37,6 +39,19 @@ uint_fast64_t leftRotate(uint_fast64_t a, unsigned int c){
     return (a << c)|(a >> (INT_BITS - c));
 }
 
+std::string hexString(uint_fast8_t a){
+    // converts 8 binary to hexadecimal string
+
+    std::stringstream stream;
+    // with respect to leading zeros
+    // cast need to make sure we won't output as char
+    stream << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(a);
+
+    std::string str = stream.str();
+
+    return str;
+}
+
 void theta(std::vector<std::vector<uint_fast64_t> > &A){
     std::vector<uint_fast64_t> C(5);
     for (size_t i = 0; i != 5; ++i)
@@ -52,7 +67,7 @@ void theta(std::vector<std::vector<uint_fast64_t> > &A){
     }
 }
 
-std::vector <std::vector <uint_fast64_t> > SHA3::rhoAndPi(std::vector<std::vector<uint_fast64_t> > &A){
+std::vector <std::vector <uint_fast64_t> > SHA3::rhoAndPi(const std::vector<std::vector<uint_fast64_t> > &A){
     std::vector <std::vector <uint_fast64_t> > B (5, std::vector<uint_fast64_t>(5));
     for(size_t i = 0; i != 5; ++i){
         for(size_t j = 0; j!= 5; ++j){
@@ -76,7 +91,6 @@ void iota(std::vector <std::vector <uint_fast64_t> > &A, uint_fast64_t rc){
 }
 
 void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
-
     // Theta:
     theta(A);
     std::vector <std::vector <uint_fast64_t> > B = rhoAndPi(A);
@@ -84,10 +98,44 @@ void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
     iota(A, rc);
 }
 
-void SHA3::keccakF(std::vector<std::vector<uint_fast64_t> > &A){
+std::vector<std::vector<uint_fast64_t> > SHA3::keccakF(std::vector<std::vector<uint_fast64_t> > A){
     for(size_t i = 0; i != 24; ++i){
         round(A, RC[i]);
     }
+
+    return A;
+}
+
+std::vector<std::vector<uint_fast64_t> > calculateStateArray(const std::vector<uint_fast8_t> &state){
+    // converts state to state array
+    std::vector<std::vector<uint_fast64_t> > stateArray(5, std::vector <uint_fast64_t> (5, 0));
+    uint_fast64_t word;
+    size_t pos = 0;
+
+    for (size_t j = 0; j != 5; ++j){
+         for (size_t i = 0; i != 5; ++i){
+            uint_fast64_t word = 0;
+            for (size_t k = pos; k != pos + 8; ++k){
+                word = word | (state[k] << (8*(7 - k)));
+            }
+            pos += 8;
+            stateArray[i][j] = word;
+         }
+    }
+
+    return stateArray;
+}
+
+std::vector<uint_fast8_t> calculateState(const std::vector<std::vector<uint_fast64_t> > &A){
+    //converts state array to state
+    std::vector<uint_fast8_t> state;
+    for (size_t j = 0; j != 5; ++ j){
+        for (size_t i = 0; i != 5; ++ i){
+            for (size_t shift = 56; shift != -8; shift -= 8)
+            state.push_back( (A[i][j] >> shift) & 0xFF); // 8 bytes of 64 bit element
+        }
+    }
+    return state;
 }
 
 void SHA3::padding(){
@@ -118,17 +166,29 @@ void SHA3::padding(){
 
 void SHA3::absorbing(){
     // initializing state array:
-    std::vector<std::vector<uint_fast64_t> > sArray(5, std::vector<uint_fast64_t> (5,0));
-    SHA3::stateArray = sArray;
+    std::vector<uint_fast8_t> state(200,0);
 
+    size_t n = message.size() * 8 / r; // amount of blocks
+    for (size_t i = 0; i != n; ++i){
+        for (size_t j = (r / 8)*i; j != (r / 8)*(i+1); ++j) // r/8 = number of characters in one block
+            state[j] = state[j] ^ message[j];
+        state = calculateState(keccakF(calculateStateArray(state)));
+    }
+    SHA3::state = state;
+}
 
-
+void SHA3::squeezing(){
+    std::string res = "";
+    for (size_t i = 0; i != bitsDigest/8; ++i){
+        res += hexString(state[i]);
+    }
+    messageDigest = res;
 }
 
 void SHA3::calculateHash(){
     padding();
     absorbing();
-    //squeezing();
+    squeezing();
 }
 
 void SHA3::enterMessage(){
