@@ -1,6 +1,5 @@
 #include <iostream>
 #include <iomanip>
-#include <bitset>
 #include "SHA3.h"
 
 
@@ -52,6 +51,40 @@ std::string hexString(uint_fast8_t a){
     return str;
 }
 
+std::vector<std::vector<uint_fast64_t> > calculateStateArray(const std::vector<uint_fast8_t> &state){
+    // converts state to state array
+    std::vector<std::vector<uint_fast64_t> > stateArray(5, std::vector <uint_fast64_t> (5, 0));
+    uint_fast64_t word;
+    size_t pos = 0;
+
+    for (size_t j = 0; j != 5; ++j){
+         for (size_t i = 0; i != 5; ++i){
+            uint_fast64_t word = 0;
+            for (size_t k = 0; k != 8; ++k){
+                // to achieve correct shift by more than 32 bits
+                uint_fast64_t tmp = state[pos+k];
+                word = word | (tmp << (8*k));
+            }
+            pos += 8;
+            stateArray[i][j] = word;
+         }
+    }
+
+    return stateArray;
+}
+
+std::vector<uint_fast8_t> calculateState(const std::vector<std::vector<uint_fast64_t> > &A){
+    //converts state array to state
+    std::vector<uint_fast8_t> state;
+    for (size_t j = 0; j != 5; ++ j){
+        for (size_t i = 0; i != 5; ++ i){
+            for (size_t shift = 0; shift != 64; shift += 8)
+            state.push_back( (A[i][j] >> shift) & 0xFF); // 8 bytes of 64 bit element
+        }
+    }
+    return state;
+}
+
 void theta(std::vector<std::vector<uint_fast64_t> > &A){
     std::vector<uint_fast64_t> C(5);
     for (size_t i = 0; i != 5; ++i)
@@ -68,7 +101,7 @@ void theta(std::vector<std::vector<uint_fast64_t> > &A){
 }
 
 std::vector <std::vector <uint_fast64_t> > SHA3::rhoAndPi(const std::vector<std::vector<uint_fast64_t> > &A){
-    std::vector <std::vector <uint_fast64_t> > B (5, std::vector<uint_fast64_t>(5));
+    std::vector <std::vector <uint_fast64_t> > B (5, std::vector<uint_fast64_t>(5,0));
     for(size_t i = 0; i != 5; ++i){
         for(size_t j = 0; j!= 5; ++j){
             B[j][(2*i + 3*j) % 5] = leftRotate(A[i][j], RO[i][j]);
@@ -91,8 +124,9 @@ void iota(std::vector <std::vector <uint_fast64_t> > &A, uint_fast64_t rc){
 }
 
 void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
-    // Theta:
+    // Theta: - correct
     theta(A);
+    // Rho and Pi - need to remake
     std::vector <std::vector <uint_fast64_t> > B = rhoAndPi(A);
     chi(A, B);
     iota(A, rc);
@@ -100,42 +134,10 @@ void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
 
 std::vector<std::vector<uint_fast64_t> > SHA3::keccakF(std::vector<std::vector<uint_fast64_t> > A){
     for(size_t i = 0; i != 24; ++i){
-        round(A, RC[i]);
+        round(A, RC[0]);
     }
 
     return A;
-}
-
-std::vector<std::vector<uint_fast64_t> > calculateStateArray(const std::vector<uint_fast8_t> &state){
-    // converts state to state array
-    std::vector<std::vector<uint_fast64_t> > stateArray(5, std::vector <uint_fast64_t> (5, 0));
-    uint_fast64_t word;
-    size_t pos = 0;
-
-    for (size_t j = 0; j != 5; ++j){
-         for (size_t i = 0; i != 5; ++i){
-            uint_fast64_t word = 0;
-            for (size_t k = pos; k != pos + 8; ++k){
-                word = word | (state[k] << (8*(7 - k)));
-            }
-            pos += 8;
-            stateArray[i][j] = word;
-         }
-    }
-
-    return stateArray;
-}
-
-std::vector<uint_fast8_t> calculateState(const std::vector<std::vector<uint_fast64_t> > &A){
-    //converts state array to state
-    std::vector<uint_fast8_t> state;
-    for (size_t j = 0; j != 5; ++ j){
-        for (size_t i = 0; i != 5; ++ i){
-            for (size_t shift = 56; shift != -8; shift -= 8)
-            state.push_back( (A[i][j] >> shift) & 0xFF); // 8 bytes of 64 bit element
-        }
-    }
-    return state;
 }
 
 void SHA3::padding(){
@@ -175,6 +177,7 @@ void SHA3::absorbing(){
         state = calculateState(keccakF(calculateStateArray(state)));
     }
     SHA3::state = state;
+
 }
 
 void SHA3::squeezing(){
