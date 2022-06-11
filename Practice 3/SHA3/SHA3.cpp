@@ -21,17 +21,6 @@ void SHA3::initialiseRC(){
     SHA3::RC = RC;
 }
 
-void SHA3::initialiseRO(){
-    std::vector<std::vector<uint_fast64_t> > RO{
-        {0, 1, 62, 28, 27},
-        {36, 44, 6, 55, 20},
-        {3, 10, 43, 25, 39},
-        {41, 45, 15, 21, 8},
-        {18, 2, 61, 56, 14},
-    };
-    SHA3::RO = RO;
-}
-
 uint_fast64_t leftRotate(uint_fast64_t a, unsigned int c){
     // implements c bits circular left shift for value a
     unsigned int INT_BITS = 64;
@@ -100,22 +89,26 @@ void theta(std::vector<std::vector<uint_fast64_t> > &A){
     }
 }
 
-std::vector <std::vector <uint_fast64_t> > SHA3::rhoAndPi(const std::vector<std::vector<uint_fast64_t> > &A){
-    std::vector <std::vector <uint_fast64_t> > B (5, std::vector<uint_fast64_t>(5,0));
-    for(size_t i = 0; i != 5; ++i){
-        for(size_t j = 0; j!= 5; ++j){
-            B[j][(2*i + 3*j) % 5] = leftRotate(A[i][j], RO[i][j]);
-        }
+void rhoAndPi(std::vector<std::vector<uint_fast64_t> > &A){
+    size_t i = 1, j = 0;
+    uint_fast64_t previous = A[i][j];
+    for(size_t t = 0; t != 24; ++t){
+        uint_fast64_t r = ((t+1)*(t+2)/2)%64;
+        size_t tmp = (2*i+3*j)%5;
+        i = j; j = tmp;
+        uint_fast64_t temp = A[i][j];
+        A[i][j] = leftRotate(previous, r);
+        previous = temp;
     }
-    return B;
 }
 
-void chi(std::vector <std::vector <uint_fast64_t> > &A,
-         const std::vector <std::vector <uint_fast64_t> > &B){
-    for(size_t i = 0; i != 5; ++i){
-        for(size_t j = 0; j != 5; ++j){
-            A[i][j] = (B[i][j] ^ ((~B[(i+1) % 5][j]) & B[(i+2) % 5][j]));
-        }
+void chi(std::vector <std::vector <uint_fast64_t> > &A){
+    std::vector<uint_fast64_t> tmp(5);
+    for(size_t j = 0; j != 5; ++j){
+        for(size_t i = 0; i != 5; ++i)
+            tmp[i] = A[i][j];
+        for(size_t i = 0; i != 5; ++i)
+            A[i][j] = (tmp[i] ^ ((~tmp[(i+1) % 5]) & tmp[(i+2) % 5]));
     }
 }
 
@@ -124,17 +117,16 @@ void iota(std::vector <std::vector <uint_fast64_t> > &A, uint_fast64_t rc){
 }
 
 void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
-    // Theta: - correct
+   
     theta(A);
-    // Rho and Pi - need to remake
-    std::vector <std::vector <uint_fast64_t> > B = rhoAndPi(A);
-    chi(A, B);
+    rhoAndPi(A);
+    chi(A);
     iota(A, rc);
 }
 
 std::vector<std::vector<uint_fast64_t> > SHA3::keccakF(std::vector<std::vector<uint_fast64_t> > A){
     for(size_t i = 0; i != 24; ++i){
-        round(A, RC[0]);
+        round(A, RC[i]);
     }
 
     return A;
@@ -239,5 +231,4 @@ std::string SHA3::getHash(){
 
 SHA3::SHA3(){
     initialiseRC();
-    initialiseRO();
 }
