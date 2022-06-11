@@ -117,7 +117,6 @@ void iota(std::vector <std::vector <uint_fast64_t> > &A, uint_fast64_t rc){
 }
 
 void SHA3::round(std::vector<std::vector<uint_fast64_t> > &A, uint_fast64_t rc){
-   
     theta(A);
     rhoAndPi(A);
     chi(A);
@@ -160,14 +159,16 @@ void SHA3::padding(){
 
 void SHA3::absorbing(){
     // initializing state array:
-    std::vector<uint_fast8_t> state(200,0);
 
+    std::vector<uint_fast8_t> state(200,0);
     size_t n = message.size() * 8 / r; // amount of blocks
+
     for (size_t i = 0; i != n; ++i){
-        for (size_t j = (r / 8)*i; j != (r / 8)*(i+1); ++j) // r/8 = number of characters in one block
-            state[j] = state[j] ^ message[j];
+        for (size_t j = 0; j != (r / 8); ++j) // r/8 = number of characters in one block
+            state[j] ^= message[j + (r/8)*i];
         state = calculateState(keccakF(calculateStateArray(state)));
     }
+
     SHA3::state = state;
 
 }
