@@ -15,11 +15,11 @@ private:
     size_t b = 1600;
     size_t rounds = 24;
     size_t w = 64;
-    std::vector<std::vector<uint_fast64_t> > stateArray;
-    void kessakF();
+    std::vector<uint_fast8_t> state;
+    std::vector<std::vector<uint_fast64_t> > keccakF(std::vector<std::vector<uint_fast64_t> > A);
     std::vector<uint_fast64_t> RC; // round constants
     std::vector<std::vector<uint_fast64_t> > RO; // rotation offsets
-    std::vector <std::vector <uint_fast64_t> > rhoAndPi(std::vector<std::vector<uint_fast64_t> > &A);
+    std::vector <std::vector <uint_fast64_t> > rhoAndPi(const std::vector<std::vector<uint_fast64_t> > &A);
     void round(std::vector<std::vector<uint_fast64_t> > &A,  uint_fast64_t rc);
     void keccakF(std::vector<std::vector<uint_fast64_t> > &A);
 
