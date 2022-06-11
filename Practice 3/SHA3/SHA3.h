@@ -18,8 +18,6 @@ private:
     std::vector<uint_fast8_t> state;
     std::vector<std::vector<uint_fast64_t> > keccakF(std::vector<std::vector<uint_fast64_t> > A);
     std::vector<uint_fast64_t> RC; // round constants
-    std::vector<std::vector<uint_fast64_t> > RO; // rotation offsets
-    std::vector <std::vector <uint_fast64_t> > rhoAndPi(const std::vector<std::vector<uint_fast64_t> > &A);
     void round(std::vector<std::vector<uint_fast64_t> > &A,  uint_fast64_t rc);
     void keccakF(std::vector<std::vector<uint_fast64_t> > &A);
 
@@ -30,7 +28,6 @@ public:
     void calculateHash();
     std::string getHash();
     void initialiseRC();
-    void initialiseRO();
 };
 
 #endif // SHA3_H_INCLUDED
