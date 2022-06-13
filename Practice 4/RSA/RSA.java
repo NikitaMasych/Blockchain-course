@@ -1,4 +1,3 @@
-import javax.management.InvalidAttributeValueException;
 import java.math.BigInteger;
 import java.security.*;
 import java.nio.charset.StandardCharsets;
@@ -137,18 +136,17 @@ public class RSA {
      * @params xLen intended length of the resulting octet string
      * @return octet string of lenght xLen
      */
-    public String I2OSP(BigInteger x, int xLen){
+    public byte[] I2OSP(BigInteger x, int xLen){
         if (x.compareTo(BigInteger.valueOf(256).pow(xLen)) != -1)
             throw new RuntimeException("Integer too large!");
 
-        StringBuilder res = new StringBuilder();
-        while (!x.equals(BigInteger.ZERO)){
-            res.append(x.mod(BigInteger.valueOf(256)));
+        byte[] res = new byte[xLen];
+        for(int i = 0; i != xLen; ++i){
+            res[i] = (x.mod(BigInteger.valueOf(256)).byteValue());
             x = x.divide(BigInteger.valueOf(256));
         }
-        res.append("0".repeat(Math.max(0, xLen - res.length())));
 
-        return res.reverse().toString();
+        return res;
     }
 
     /**
@@ -156,12 +154,10 @@ public class RSA {
      * @params x octet string to be converted
      * @return corresponding nonnegative integer
      */
-    public BigInteger OS2IP(String x){
-        x = new StringBuilder(x).reverse().toString();
+    public BigInteger OS2IP(byte[] x){
         BigInteger res = BigInteger.ZERO;
-        for (int i = 0; i != x.length(); ++i){
-            BigInteger c = new BigInteger(String.valueOf(x.charAt(i)));
-            res = res.add(c.multiply(BigInteger.valueOf(256).pow(i)));
+        for (int i = 0; i != x.length; ++i){
+            res = res.add(BigInteger.valueOf(x[i] & 0xFF).multiply(BigInteger.valueOf(256).pow(x.length - i - 1)));
         }
         return res;
     }
@@ -171,9 +167,9 @@ public class RSA {
      * @param str input message
      * @return message digest as octet string
      */
-    public String SHA(String str) throws NoSuchAlgorithmException {
+    public byte[] SHA(byte[] str) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance(hashAlgorithm);
-        return Arrays.toString(md.digest(str.getBytes(StandardCharsets.UTF_8)));
+        return md.digest(str);
     }
     /**
      * Mask generation function
@@ -181,15 +177,25 @@ public class RSA {
      * @param l intended length in octets of the mask
      * @return mask of l octets length
      */
-    String MGF1(String Z, int l) throws NoSuchAlgorithmException {
+    byte[] MGF1(byte[] Z, int l) throws NoSuchAlgorithmException {
 
         if (l > Math.pow(2,hLen)) throw new RuntimeException("Mask too long!");
-        StringBuilder T = new StringBuilder();
+        byte[] T = new byte[l];
+
+        byte[] tmp = new byte[Z.length + 4];
+        System.arraycopy(Z, 0, tmp, 0, Z.length);
+        int i = 0;
         for (long counter = 0; counter != Math.ceilDiv(l,hLen) - 1; ++ counter){
-            String C = I2OSP(BigInteger.valueOf(counter), 4);
-            T.append(SHA(Z + C));
+            byte[] C = I2OSP(BigInteger.valueOf(counter), 4);
+            System.arraycopy(C, 0, tmp, Z.length, 4);
+            byte[] tmp2 = SHA(tmp);
+            int k = 0;
+            while(i < l && k < hLen) {
+                T[i] = tmp2[k];
+                k++; i++;
+            }
         }
-        return T.substring(0,l);
+        return T;
     }
 
     /**
@@ -197,13 +203,10 @@ public class RSA {
      * @param len intended length in octets of the seed
      * @return seed string size of len
      */
-    public String seedRandom(int len){
-        StringBuilder res = new StringBuilder();
-        Random rand = new Random();
-        for (int i = 0; i != len; ++i){
-            res.append((char) rand.nextInt(256));
-        }
-        return res.toString();
+    public byte[] seedRandom(int len) throws NoSuchAlgorithmException {
+        byte[] res = new byte[len];
+        SecureRandom.getInstanceStrong().nextBytes(res);
+        return res;
     }
     /**
      * Applies xor operation to the corresponding characters of string a and b
@@ -211,43 +214,58 @@ public class RSA {
      * @param b denotes second term
      * @return string of xor result
      */
-    String XORStrings(String a, String b){
-        if (a.length() != b.length())
+    byte[] XORStrings(byte[] a, byte[] b){
+        if (a.length != b.length)
             throw new RuntimeException("Lengths of strings diverges!");
-        StringBuilder res = new StringBuilder();
-        for (int i = 0; i != a.length(); ++i){
-            res.append((int) a.charAt(i) ^ (int)b.charAt(i));
+        byte[] res = new byte[a.length];
+        for (int i = 0; i != a.length; ++i){
+            res[i] = (byte) (a[i] ^ b[i]);
         }
-        return res.toString();
+        return res;
     }
     /**
      * Encryption operation
      * Using specified hashing algorithm
      * @param e public exponent
      * @param n public modulus
-     * @param message message to be encrypted, an octet string of length mLen
-     * @param L optional label to be associated with the message, by default, empty string
+     * @param msg message to be encrypted, an octet string of length mLen
+     * @param l optional label to be associated with the message, by default, empty string
      * @return ciphertext, an octet string of length k
      */
-    public String RSAES_OAEP_ENCRYPT(BigInteger e, BigInteger n, String message, String L){
-        int mLen = message.length();
+    public byte[] RSAES_OAEP_ENCRYPT(BigInteger e, BigInteger n, String msg, String l){
+        int mLen = msg.length();
         if (mLen > k - 2*hLen - 2) throw new RuntimeException("Message too long!");
+        if (l == null) l = "";
+
+        byte[] message = msg.getBytes(StandardCharsets.UTF_8);
+        byte[] L = l.getBytes(StandardCharsets.UTF_8);
+
         // EME-OAEP Encoding:
-        if (L == null) L = "";
         try {
-            String lHash = SHA(L);
-            StringBuilder tmp = new StringBuilder();
-            String PS = String.valueOf(tmp.append("0".repeat((k - mLen - 2*hLen - 2))));
-            String DB = lHash + PS + 0x01 + message;
-            String seed = seedRandom(hLen);
-            String dbMask = MGF1(seed, k - hLen - 1);
-            String maskedDB = XORStrings(DB, dbMask);
-            String seedMask = MGF1(maskedDB, hLen);
-            String maskedSeed = XORStrings(seed, seedMask);
-            String EM =  0x00 + maskedSeed + maskedDB;
+            byte[] lHash = SHA(L);
+
+            byte[] DB = new byte[k - hLen - 1];
+            System.arraycopy(lHash, 0, DB, 0, hLen);
+            for (int i = hLen; i != DB.length - 1 - mLen; ++i){
+                DB[i] = 0x00;
+            }
+            DB[DB.length-1-mLen] = 0x01;
+            System.arraycopy(message, 0, DB, DB.length - mLen, mLen);
+
+            byte[] seed = seedRandom(hLen);
+            byte[] dbMask = MGF1(seed, k - hLen - 1);
+            byte[] maskedDB = XORStrings(DB, dbMask);
+            byte[] seedMask = MGF1(maskedDB, hLen);
+            byte[] maskedSeed = XORStrings(seed, seedMask);
+
+            byte[] EM = new byte[k];
+            EM[0] = 0x00;
+            System.arraycopy(maskedSeed, 0, EM, 1, hLen);
+            System.arraycopy(maskedDB, 0, EM, hLen + 1, k - hLen - 1);
+
             BigInteger m = OS2IP(EM);
             BigInteger c = RSAEP(e, n, m);
-            return I2OSP (c, k);
+            return I2OSP(c, k);
         }
         catch (NoSuchAlgorithmException ex){
             System.out.println( "Exception thrown for incorrect algorithm: " + e ) ;
@@ -255,7 +273,8 @@ public class RSA {
         catch (RuntimeException ex){
             System.out.println(e);
         }
-        return "";
+
+        return message;
     }
     /**
      * Decryption operation
@@ -263,31 +282,32 @@ public class RSA {
      * @param d private exponent
      * @param n public modulus
      * @param ciphertext ciphertext to be decrypted, an octet string of length k
-     * @param L optional label whose association with the message
+     * @param l optional label whose association with the message
      * @return message, an octet string of length mLen, where mLen <= k - 2hLen - 2
      */
-    public String  RSAES_OAEP_DECRYPT(BigInteger d, BigInteger n, String ciphertext, String L){
-        System.out.println(ciphertext.length());
-        if (ciphertext.length() != k || k < (2*hLen + 2))
-            throw new RuntimeException("Decryption error!");
+    public byte[] RSAES_OAEP_DECRYPT(BigInteger d, BigInteger n, byte[] ciphertext, String l){
         try {
+            if (ciphertext.length != k || k < (2*hLen + 2))
+                throw new RuntimeException("Decryption error!");
             BigInteger c = OS2IP(ciphertext);
             BigInteger m = RSADP(d, n, c);
-            String EM = I2OSP(m, hLen);
-            if (L == null) L = "";
-            String lHash = SHA(L);
-            char Y = EM.charAt(0);
-            String maskedSeed = EM.substring(1, hLen);
-            String maskedDB = EM.substring(hLen, k);
-            String seedMask = MGF1(maskedDB, hLen);
-            String seed = XORStrings(maskedSeed, seedMask);
-            String dbMask = MGF1(seed, k - hLen - 1);
-            String DB = XORStrings(maskedDB, dbMask);
-            String lHash1 = DB.substring(0,hLen);
+            byte[] EM = I2OSP(m, hLen);
+            if (l == null) l = "";
+            byte[] lHash = SHA(l.getBytes(StandardCharsets.UTF_8));
+            byte Y = EM[0];
+
+            byte[] maskedSeed = Arrays.copyOfRange(EM, 1, hLen);
+            byte[] maskedDB = Arrays.copyOfRange(EM, hLen, k);
+            byte[] seedMask = MGF1(maskedDB, hLen);
+            byte[] seed = XORStrings(maskedSeed, seedMask);
+            byte[] dbMask = MGF1(seed, k - hLen - 1);
+            byte[] DB = XORStrings(maskedDB, dbMask);
+            byte[] lHash1 = Arrays.copyOfRange(DB, 0, hLen);
+
             int index = hLen;
-            while(DB.charAt(index) == 0x00 ) index ++;
-            String M = DB.substring(index+1);
-            if(DB.charAt(index) != 0x01 || !Objects.equals(lHash, lHash1) || Y != 0)
+            while(DB[index] == 0x00 ) index ++;
+            byte[] M = Arrays.copyOfRange(DB,index+1, DB.length);
+            if(DB[index] != 0x01 || !Arrays.equals(lHash, lHash1) || Y != 0)
                 throw new RuntimeException();
             return M;
         }
@@ -298,7 +318,7 @@ public class RSA {
             System.out.println( "Exception thrown for incorrect algorithm: " + ex) ;
         }
 
-        return "";
+        return ciphertext;
     }
 
 }
