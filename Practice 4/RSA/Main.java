@@ -1,4 +1,6 @@
 import java.math.BigInteger;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.Map;
 import java.util.Scanner;
@@ -12,9 +14,12 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         String message = scanner.nextLine();
 
-        String ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, null);
-        System.out.println(ciphertext);
-        String decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, null);
-        System.out.println(decryptedMessage);
+        byte[] ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, null);
+        byte[] decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, null);
+
+        Charset charset = StandardCharsets.UTF_8;
+        String result = new String(decryptedMessage, charset);
+
+        System.out.println(result);
     }
 }
