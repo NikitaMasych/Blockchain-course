@@ -99,7 +99,7 @@ public class RSA {
      * @return message representative, an integer between 0 and n - 1
      */
     public BigInteger RSADP(BigInteger d, BigInteger n, BigInteger c){
-        if ((c.compareTo(BigInteger.ZERO) == -1) || (c.compareTo(n.subtract(BigInteger.ONE)) == 1)){
+        if ((c.compareTo(BigInteger.ZERO) == -1) || (c.compareTo(n.subtract(BigInteger.ONE)) != -1)){
             throw new RuntimeException("Ciphertext representative out of range!");
         }
         return c.modPow(d, n);
@@ -137,18 +137,17 @@ public class RSA {
      * @return octet string of lenght xLen
      */
     public byte[] I2OSP(BigInteger x, int xLen){
+
         if (x.compareTo(BigInteger.valueOf(256).pow(xLen)) != -1)
             throw new RuntimeException("Integer too large!");
 
         byte[] res = new byte[xLen];
         for(int i = 0; i != xLen; ++i){
-            res[i] = (x.mod(BigInteger.valueOf(256)).byteValue());
-            x = x.divide(BigInteger.valueOf(256));
+            res[i] = (x.divide(BigInteger.valueOf(256).pow(xLen - i - 1)).byteValue());
         }
 
         return res;
     }
-
     /**
      * OS2IP converts an octet string to a nonnegative integer.
      * @params x octet string to be converted
@@ -185,7 +184,7 @@ public class RSA {
         byte[] tmp = new byte[Z.length + 4];
         System.arraycopy(Z, 0, tmp, 0, Z.length);
         int i = 0;
-        for (long counter = 0; counter != Math.ceilDiv(l,hLen) - 1; ++ counter){
+        for (int counter = 0; counter != Math.ceilDiv(l,hLen) - 1; ++ counter){
             byte[] C = I2OSP(BigInteger.valueOf(counter), 4);
             System.arraycopy(C, 0, tmp, Z.length, 4);
             byte[] tmp2 = SHA(tmp);
@@ -291,13 +290,15 @@ public class RSA {
                 throw new RuntimeException("Decryption error!");
             BigInteger c = OS2IP(ciphertext);
             BigInteger m = RSADP(d, n, c);
-            byte[] EM = I2OSP(m, hLen);
+
+            // EME-OAEP Decoding:
+            byte[] EM = I2OSP(m, k);
             if (l == null) l = "";
             byte[] lHash = SHA(l.getBytes(StandardCharsets.UTF_8));
             byte Y = EM[0];
 
-            byte[] maskedSeed = Arrays.copyOfRange(EM, 1, hLen);
-            byte[] maskedDB = Arrays.copyOfRange(EM, hLen, k);
+            byte[] maskedSeed = Arrays.copyOfRange(EM, 1, hLen+1);
+            byte[] maskedDB = Arrays.copyOfRange(EM, hLen+1, k);
             byte[] seedMask = MGF1(maskedDB, hLen);
             byte[] seed = XORStrings(maskedSeed, seedMask);
             byte[] dbMask = MGF1(seed, k - hLen - 1);
@@ -305,7 +306,9 @@ public class RSA {
             byte[] lHash1 = Arrays.copyOfRange(DB, 0, hLen);
 
             int index = hLen;
-            while(DB[index] == 0x00 ) index ++;
+            while(index < DB.length && DB[index] != 0x01 ){
+                index++;
+            }
             byte[] M = Arrays.copyOfRange(DB,index+1, DB.length);
             if(DB[index] != 0x01 || !Arrays.equals(lHash, lHash1) || Y != 0)
                 throw new RuntimeException();
