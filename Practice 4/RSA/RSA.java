@@ -8,6 +8,7 @@ import java.util.*;
 public class RSA {
     private String hashAlgorithm; // Type of the hash algorithm
     private int k; // Length in octets of the modulus n
+    private int modBits;
     private int hLen; // Length in octets of the specified hash algorithm
 
     /**
@@ -41,7 +42,10 @@ public class RSA {
             System.out.println("Invalid key length!");
             enterKeyLength(scanner);
         }
-        else k = keyLength / 8;
+        else {
+            k = keyLength / 8;
+            modBits = keyLength;
+        }
         scanner.nextLine();
     }
     /**
@@ -377,5 +381,139 @@ public class RSA {
         System.arraycopy(EM, index+1, M, 0, EM.length-index-1);
 
         return M;
+    }
+
+    /**
+     * Sets leftmost bits to 0.
+     * @param amount number of bits need to be set.
+     * @param element conducted byte value.
+     * @return byte element with amount bits equal 0.
+     */
+    public static byte calculateByte(int amount, byte element){
+        for (int pos = 0; pos != amount+1; ++pos)
+            element &= ~(1 << (8-pos));
+        return element;
+    }
+    /**
+     * Digital signature encoding operation.
+     * @param M represents octet message string.
+     * @param emBits length of the encoded message
+     * @param sLen intended salt length.
+     * @param hashAlgorithm desired hashing algorithm.
+     * @return encoded message as an octet string of length emBits.
+     */
+    private byte[] EMSA_PSS_ENCODE(byte[] M, int emBits, int sLen, String hashAlgorithm) throws NoSuchAlgorithmException {
+        int emLen = (int) Math.ceil(((double) (emBits)) / 8);
+        int hLen = calculateHashLength(hashAlgorithm);
+        if (emLen < hLen + sLen + 2)
+            throw new RuntimeException("Encoding error!");
+
+        byte[] mHash = hashString(M, hashAlgorithm);
+        byte[] salt = seedRandom(sLen);
+
+        byte[] M1 = new byte[8 + hLen + sLen];
+        for(int i = 0; i != 8; ++i) M1[i] = 0x00;
+        System.arraycopy(mHash, 0, M1, 8, hLen);
+        System.arraycopy(salt, 0, M1, 8+hLen, sLen);
+
+        byte[] H = hashString(M1, hashAlgorithm);
+        byte[] PS = new byte[emLen - sLen - hLen - 2]; // 0x00 for all elements by default
+
+        byte[] DB = new byte[emLen - hLen - 1];
+        System.arraycopy(PS, 0, DB,0, PS.length);
+        DB[PS.length] = 0x01;
+        System.arraycopy(salt, 0, DB, PS.length + 1, sLen);
+
+        byte[] dbMask = MGF1(H, emLen - hLen - 1, hashAlgorithm);
+        byte[] maskedDB = XORStrings(DB, dbMask);
+        maskedDB[0] = calculateByte(8*emLen - emBits, maskedDB[0]);
+
+        byte[] EM = new byte[emLen];
+        System.arraycopy(maskedDB, 0, EM,0, maskedDB.length);
+        System.arraycopy(H, 0, EM, maskedDB.length, H.length);
+        EM[emLen-1] = (byte) 0xbc;
+
+        return EM;
+    }
+    /**
+     * Digital signature verification function.
+     * @param M intended message as octet string to be verified.
+     * @param EM encrypted message of M
+     * @param emBits maximal bit length of the integer OS2IP (EM)
+     * @param sLen salt length, 0 by default
+     * @param hashAlgorithm intended hashing algorithm
+     * @return boolean true if signature valid and false - otherwise.
+     */
+    private boolean EMSA_PSS_VERIFY(byte[] M, byte[] EM, int emBits, int sLen, String hashAlgorithm) throws NoSuchAlgorithmException {
+        int emLen = EM.length;
+        int hLen = calculateHashLength(hashAlgorithm);
+        if ((emLen < hLen + sLen + 2) || (EM[emLen-1] != (byte) 0xbc))
+            throw new RuntimeException("Inconsistent!");
+
+        byte[] mHash = hashString(M, hashAlgorithm);
+
+        byte[] maskedDB = new byte[emLen - hLen - 1];
+        System.arraycopy(EM, 0, maskedDB, 0, maskedDB.length);
+
+        byte[] H = new byte[hLen];
+        System.arraycopy(EM, maskedDB.length, H, 0, hLen);
+
+        if (maskedDB[0] != calculateByte(8*emLen - emBits, maskedDB[0]))
+            throw new RuntimeException("Inconsistent!");
+
+        byte[] dbMask = MGF1(H, emLen - hLen - 1, hashAlgorithm);
+        byte[] DB = XORStrings(maskedDB, dbMask);
+
+        if (DB[emLen - hLen - sLen - 2] != (byte) 0x01)
+            throw new RuntimeException("Inconsistent!");
+        
+        // check from the first due to modified maskedDB[0]
+        for (int i = 1; i != emLen - hLen - sLen - 2; ++i){
+            if (DB[i] != (byte)(0x00))
+                throw new RuntimeException("Inconsistent!");
+        }
+
+        byte[] M1 = new byte[8 + hLen + sLen];
+        for(int i = 0; i != 8; ++i) M1[i] = 0x00;
+        System.arraycopy(mHash, 0, M1, 8, hLen);
+        System.arraycopy(DB, DB.length - sLen, M1, 8+hLen, sLen);
+        byte[] H1 = hashString(M1, hashAlgorithm);
+
+        return Arrays.equals(H1,H);
+    }
+    /**
+     * Signature generation function.
+     * @param d represents private key exponent.
+     * @param n represents modulus.
+     * @param msg intended message.
+     * @return octet string of digital signature.
+     */
+    public byte[] RSASSA_PSS_SIGN (BigInteger d, BigInteger n, String msg) throws NoSuchAlgorithmException {
+        byte[] EM = EMSA_PSS_ENCODE(msg.getBytes(StandardCharsets.UTF_8), modBits - 1, 0, hashAlgorithm);
+        BigInteger m = OS2IP(EM);
+        BigInteger s = RSASP1 (d, n, m);
+        return I2OSP(s, k);
+    }
+    /**
+     * Signature verification function.
+     * @param e represents public key exponent.
+     * @param n represents modulus.
+     * @param msg intended message.
+     * @param S signature of msg.
+     * @return boolean true if signature valid and false - otherwise.
+     */
+    public boolean RSASSA_PSS_VERIFY(BigInteger e, BigInteger n, String msg, byte[] S) throws NoSuchAlgorithmException {
+       try {
+           if (S.length != k)
+               throw new RuntimeException("Invalid signature!");
+           BigInteger s = OS2IP(S);
+           BigInteger m = RSAVP1(e, n, s);
+           int emLen = (int) Math.ceil(((double) (modBits - 1)) / 8);
+           byte[] EM = I2OSP(m, emLen);
+           return EMSA_PSS_VERIFY(msg.getBytes(StandardCharsets.UTF_8), EM, modBits - 1, 0, hashAlgorithm);
+       }
+       catch (RuntimeException ex){
+           throw new RuntimeException("Invalid signature!");
+       }
     }
 }
