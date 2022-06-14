@@ -235,14 +235,14 @@ public class RSA {
      * @return ciphertext, an octet string of length k.
      */
     public byte[] RSAES_OAEP_ENCRYPT(BigInteger e, BigInteger n, String msg, String l){
-        int mLen = msg.length();
-        if (mLen > k - 2*hLen - 2) throw new RuntimeException("Message too long!");
-
-        byte[] message = msg.getBytes(StandardCharsets.UTF_8);
-        byte[] L = l.getBytes(StandardCharsets.UTF_8);
-
         // EME-OAEP Encoding:
         try {
+            int mLen = msg.length();
+            if (mLen > k - 2*hLen - 2) throw new RuntimeException("Message too long!");
+
+            byte[] message = msg.getBytes(StandardCharsets.UTF_8);
+            byte[] L = l.getBytes(StandardCharsets.UTF_8);
+
             byte[] lHash = hashString(L, hashAlgorithm);
 
             byte[] DB = new byte[k - hLen - 1];
@@ -264,6 +264,7 @@ public class RSA {
             System.arraycopy(maskedSeed, 0, EM, 1, hLen);
             System.arraycopy(maskedDB, 0, EM, hLen + 1, k - hLen - 1);
 
+            //RSA encryption:
             BigInteger m = OS2IP(EM);
             BigInteger c = RSAEP(e, n, m);
             return I2OSP(c, k);
@@ -275,7 +276,7 @@ public class RSA {
             System.out.println(e);
         }
 
-        return message;
+        return msg.getBytes(StandardCharsets.UTF_8);
     }
     // piece of overloading to achieve default associated label L
     public byte[] RSAES_OAEP_ENCRYPT(BigInteger e, BigInteger n, String msg){
@@ -294,11 +295,12 @@ public class RSA {
         try {
             if (ciphertext.length != k || k < (2*hLen + 2))
                 throw new RuntimeException("Decryption error!");
+            //RSA Decryption:
             BigInteger c = OS2IP(ciphertext);
             BigInteger m = RSADP(d, n, c);
+            byte[] EM = I2OSP(m, k);
 
             // EME-OAEP Decoding:
-            byte[] EM = I2OSP(m, k);
             if (l == null) l = "";
             byte[] lHash = hashString(l.getBytes(StandardCharsets.UTF_8), hashAlgorithm);
             byte Y = EM[0];
@@ -333,5 +335,76 @@ public class RSA {
     public byte[] RSAES_OAEP_DECRYPT(BigInteger d, BigInteger n, byte[] ciphertext){
         return RSAES_OAEP_DECRYPT(d,n,ciphertext, "");
     }
+    /**
+     * Encryption operation.
+     * @param e public exponent.
+     * @param n public modulus.
+     * @param msg message to be encrypted, an octet string of length mLen.
+     * @return ciphertext, an octet string of length k.
+     */
+    public byte[] RSAES_PKCS1_V1_5_ENCRYPT(BigInteger e, BigInteger n, String msg){
+        try {
+            int mLen = msg.length();
+            if (mLen > k - 11) throw new RuntimeException("Message too long!");
+            byte[] message = msg.getBytes(StandardCharsets.UTF_8);
 
+            // EME-PKCS1-v1_5 encoding:
+            byte[] PS = seedRandom(k-mLen-3);
+
+            byte[] EM = new byte[k];
+            EM[0] = 0x00; EM[1] = 0x02;
+            System.arraycopy(PS, 0, EM, 2, PS.length);
+            EM[PS.length+2] = 0x00;
+            System.arraycopy(message, 0, EM, PS.length+3, mLen);
+
+            //RSA encryption:
+            BigInteger m = OS2IP(EM);
+            BigInteger c = RSAEP(e, n, m);
+            return I2OSP(c, k);
+        }
+        catch (NoSuchAlgorithmException ex){
+            System.out.println( "Exception thrown for incorrect algorithm: " + e ) ;
+        }
+        catch (RuntimeException ex){
+            System.out.println(e);
+        }
+
+        return msg.getBytes(StandardCharsets.UTF_8);
+    }
+    /**
+     * Decryption operation.
+     * @param d private exponent.
+     * @param n public modulus.
+     * @param ciphertext ciphertext to be decrypted, an octet string of length k.
+     * @return message, an octet string of length mLen, where mLen <= k - 2hLen - 2.
+     */
+    public byte[] RSAES_PKCS1_V1_5_DECRYPT(BigInteger d, BigInteger n, byte[] ciphertext){
+        try {
+            if (ciphertext.length != k || k < 11)
+                throw new RuntimeException("Decryption error!");
+            //RSA Decryption:
+            BigInteger c = OS2IP(ciphertext);
+            BigInteger m = RSADP(d, n, c);
+            byte[] EM = I2OSP(m, k);
+
+            // EME-PKCS1-v1_5 decoding:
+
+            int index = EM.length-1;
+            while(index > 2 && EM[index] != 0x00 ){
+                index--;
+            }
+            if(EM[0] != 0x00 || EM[1] != 0x02 || EM[index] != 0x00 || index-2 < 8)
+                throw new RuntimeException();
+
+            byte[] M = new byte[EM.length - index - 1];
+            System.arraycopy(EM, index+1, M, 0, EM.length-index-1);
+
+            return M;
+        }
+        catch (RuntimeException ex){
+            System.out.println("Decryption error: " + ex);
+        }
+
+        return ciphertext;
+    }
 }
