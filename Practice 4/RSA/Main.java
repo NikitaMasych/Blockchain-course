@@ -13,6 +13,35 @@ public class Main {
         }
         System.out.println(sb);
     }
+    static private void test1(RSA rsa, Map<Character, BigInteger> keys, Charset charset, String message)
+            throws NoSuchAlgorithmException {
+        byte[] ciphertext;
+        byte[] decryptedMessage;
+
+        // RSAES-PSCS1-V1_5:
+        ciphertext = rsa.RSAES_PKCS1_V1_5_ENCRYPT(keys.get('e'), keys.get('n'), message);
+        outputCiphertext(ciphertext);
+        decryptedMessage = rsa.RSAES_PKCS1_V1_5_DECRYPT(keys.get('d'), keys.get('n'), ciphertext);
+        System.out.println(new String(decryptedMessage, charset));
+
+        // NO LABEL TEST:
+        ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message);
+        outputCiphertext(ciphertext);
+        decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext);
+        System.out.println(new String(decryptedMessage, charset));
+
+        // CORRESPONDING LABELS TEST:
+        ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, "Average label fun");
+        outputCiphertext(ciphertext);
+        decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, "Average label fun");
+        System.out.println(new String(decryptedMessage, charset));
+
+        //DIVERGENT LABELS TEST:
+        ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, "Average label fun");
+        outputCiphertext(ciphertext);
+        decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, "Average label enjoyer");
+        System.out.println(new String(decryptedMessage, charset));
+    }
     public static void main(String[] args){
         try {
             RSA rsa = new RSA();
@@ -22,35 +51,12 @@ public class Main {
             System.out.println("Enter message to be encrypted: ");
             Scanner scanner = new Scanner(System.in);
             String message = scanner.nextLine();
-
             Charset charset = StandardCharsets.UTF_8;
-            byte[] ciphertext;
-            byte[] decryptedMessage;
+            
+            byte[] DS = rsa.RSASSA_PSS_SIGN(keys.get('d'), keys.get('n'), message);
+            System.out.println(rsa.RSASSA_PSS_VERIFY(keys.get('e'), keys.get('n'), message, DS););
 
-            // RSAES-PSCS1-V1_5:
-            ciphertext = rsa.RSAES_PKCS1_V1_5_ENCRYPT(keys.get('e'), keys.get('n'), message);
-            outputCiphertext(ciphertext);
-            decryptedMessage = rsa.RSAES_PKCS1_V1_5_DECRYPT(keys.get('d'), keys.get('n'), ciphertext);
-            System.out.println(new String(decryptedMessage, charset));
-
-            // NO LABEL TEST:
-            ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message);
-            outputCiphertext(ciphertext);
-            decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext);
-            System.out.println(new String(decryptedMessage, charset));
-
-            // CORRESPONDING LABELS TEST:
-            ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, "Average label fun");
-            outputCiphertext(ciphertext);
-            decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, "Average label fun");
-            System.out.println(new String(decryptedMessage, charset));
-
-            //DIVERGENT LABELS TEST:
-            ciphertext = rsa.RSAES_OAEP_ENCRYPT(keys.get('e'), keys.get('n'), message, "Average label fun");
-            outputCiphertext(ciphertext);
-            decryptedMessage = rsa.RSAES_OAEP_DECRYPT(keys.get('d'), keys.get('n'), ciphertext, "Average label enjoyer");
-            System.out.println(new String(decryptedMessage, charset));
-
+            test1(rsa, keys, charset, message);
         }
         catch (NoSuchAlgorithmException ex){
             System.out.println( "Exception thrown for incorrect algorithm: " + ex) ;
