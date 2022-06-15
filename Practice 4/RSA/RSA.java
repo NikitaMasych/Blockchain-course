@@ -8,7 +8,6 @@ import java.util.*;
 public class RSA {
     private String hashAlgorithm; // Type of the hash algorithm
     private int k; // Length in octets of the modulus n
-    private int modBits;
     private int hLen; // Length in octets of the specified hash algorithm
 
     /**
@@ -31,22 +30,45 @@ public class RSA {
         return kS;
     }
     /**
+     * Requests salt length for the RSASSA_PSS via console.
+     * @return desired salt length as integer value.
+     */
+    int enterSaltLength(){
+        int sLen;
+        System.out.println("Enter desired length of the salt: ");
+        Scanner scanner = new Scanner(System.in);
+        try{
+            sLen = Integer.parseInt(scanner.nextLine());
+            if (sLen > k - hLen - 2)
+                throw  new RuntimeException("Salt length is too large!");
+
+        }
+        catch (Exception ex){
+            System.out.println("Something went wrong: " + ex);
+            sLen = enterSaltLength();
+        }
+        return sLen;
+    }
+    /**
      * Requests key length in bits via console.
      * Sets length in octets of the modulus n.
-     * @param scanner represents Scanner object for input.
      */
-    void enterKeyLength(Scanner scanner) {
+    void enterKeyLength() {
         System.out.println("Enter key length in bits: ");
-        int keyLength = scanner.nextInt();
-        if (keyLength % 512 != 0){
-            System.out.println("Invalid key length!");
-            enterKeyLength(scanner);
+        Scanner scanner = new Scanner(System.in);
+        try{
+            int keyLength = Integer.parseInt(scanner.nextLine());
+            if (keyLength % 512 != 0) {
+                System.out.println("Invalid key length!");
+                enterKeyLength();
+            }else {
+                k = keyLength / 8;
+            }
         }
-        else {
-            k = keyLength / 8;
-            modBits = keyLength;
+        catch (Exception ex){
+            System.out.println("Something went wrong: " + ex);
+            enterKeyLength();
         }
-        scanner.nextLine();
     }
     /**
      * Calculates message digest length for a specified hashing algorithm.
@@ -60,29 +82,27 @@ public class RSA {
     /**
      * Requests hashing algorithm type via console until it is not valid.
      * Sets hash length in octets for specified algorithm.
-     * @param scanner represents Scanner object for input.
      */
-    void enterHashAlgorithm(Scanner scanner){
+    void enterHashAlgorithm(){
         System.out.println("Enter hashing algorithm: ");
+        Scanner scanner = new Scanner(System.in);
         String hAlg = scanner.nextLine();
         try{
             hLen = calculateHashLength(hAlg);
             hashAlgorithm = hAlg;
         }
         catch (NoSuchAlgorithmException e){
-            System.out.println("Invalid hashing algorithm" + e);
-            enterHashAlgorithm(scanner);
+            System.out.println("Invalid hashing algorithm: " + e);
+            enterHashAlgorithm();
         }
     }
     /**
      * Constructor for the RSA class.
-     * Generates Scanner object with console input and
-     * calls enterKeyLength() and enterHashAlgorithm() functions.
+     * Calls enterKeyLength() and enterHashAlgorithm() functions.
      */
     RSA(){
-        Scanner scanner = new Scanner(System.in);
-        enterKeyLength(scanner);
-        enterHashAlgorithm(scanner);
+        enterKeyLength();
+        enterHashAlgorithm();
     }
     /**
      * Encryption primitive.
@@ -398,7 +418,7 @@ public class RSA {
      * Digital signature encoding operation.
      * @param M represents octet message string.
      * @param emBits length of the encoded message
-     * @param sLen intended salt length.
+     * @param sLen intended length of the salt.
      * @param hashAlgorithm desired hashing algorithm.
      * @return encoded message as an octet string of length emBits.
      */
@@ -440,7 +460,7 @@ public class RSA {
      * @param M intended message as octet string to be verified.
      * @param EM encrypted message of M
      * @param emBits maximal bit length of the integer OS2IP (EM)
-     * @param sLen salt length, 0 by default
+     * @param sLen intended length of the salt.
      * @param hashAlgorithm intended hashing algorithm
      * @return boolean true if signature valid and false - otherwise.
      */
@@ -466,7 +486,7 @@ public class RSA {
 
         if (DB[emLen - hLen - sLen - 2] != (byte) 0x01)
             throw new RuntimeException("Inconsistent!");
-        
+
         // check from the first due to modified maskedDB[0]
         for (int i = 1; i != emLen - hLen - sLen - 2; ++i){
             if (DB[i] != (byte)(0x00))
@@ -486,10 +506,11 @@ public class RSA {
      * @param d represents private key exponent.
      * @param n represents modulus.
      * @param msg intended message.
+     * @param sLen intended length of the salt.
      * @return octet string of digital signature.
      */
-    public byte[] RSASSA_PSS_SIGN (BigInteger d, BigInteger n, String msg) throws NoSuchAlgorithmException {
-        byte[] EM = EMSA_PSS_ENCODE(msg.getBytes(StandardCharsets.UTF_8), modBits - 1, 0, hashAlgorithm);
+    public byte[] RSASSA_PSS_SIGN (BigInteger d, BigInteger n, String msg, int sLen) throws NoSuchAlgorithmException {
+        byte[] EM = EMSA_PSS_ENCODE(msg.getBytes(StandardCharsets.UTF_8), k*8 - 1, sLen, hashAlgorithm);
         BigInteger m = OS2IP(EM);
         BigInteger s = RSASP1 (d, n, m);
         return I2OSP(s, k);
@@ -499,18 +520,19 @@ public class RSA {
      * @param e represents public key exponent.
      * @param n represents modulus.
      * @param msg intended message.
+     * @param sLen intended length of the salt.
      * @param S signature of msg.
      * @return boolean true if signature valid and false - otherwise.
      */
-    public boolean RSASSA_PSS_VERIFY(BigInteger e, BigInteger n, String msg, byte[] S) throws NoSuchAlgorithmException {
+    public boolean RSASSA_PSS_VERIFY(BigInteger e, BigInteger n, String msg, int sLen, byte[] S) throws NoSuchAlgorithmException {
        try {
            if (S.length != k)
                throw new RuntimeException("Invalid signature!");
            BigInteger s = OS2IP(S);
            BigInteger m = RSAVP1(e, n, s);
-           int emLen = (int) Math.ceil(((double) (modBits - 1)) / 8);
+           int emLen = (int) Math.ceil(((double) (k*8 - 1)) / 8);
            byte[] EM = I2OSP(m, emLen);
-           return EMSA_PSS_VERIFY(msg.getBytes(StandardCharsets.UTF_8), EM, modBits - 1, 0, hashAlgorithm);
+           return EMSA_PSS_VERIFY(msg.getBytes(StandardCharsets.UTF_8), EM, k*8 - 1, sLen, hashAlgorithm);
        }
        catch (RuntimeException ex){
            throw new RuntimeException("Invalid signature!");
