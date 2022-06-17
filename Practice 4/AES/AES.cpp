@@ -3,12 +3,13 @@
 #include "AES.h"
 
 
-std::vector<std::vector<uint_fast8_t> > AES::calculateBlock(size_t pos){
+std::vector<std::vector<uint_fast8_t> > calculateBlock(size_t pos,
+                            const std::vector <uint_fast8_t> & message){
     // creates two-dimensional array 4 * 4 from plaintext
     std::vector<std::vector<uint_fast8_t> >  res(4, std::vector<uint_fast8_t> (4,0));
     for(size_t i = 0; i != 4; ++i)
         for(size_t j = 0; j != 4; ++j){
-            res[j][i] = plaintext[pos];
+            res[j][i] = message[pos];
             pos++;
         }
     return res;
@@ -113,13 +114,16 @@ void mixColumns(std::vector <std::vector<uint_fast8_t> > &state){
     state = res;
 }
 
-void AES::calculateCiphertext(std::vector <std::vector<std::vector<uint_fast8_t> > > cipher){
-    for (size_t i = 0; i != cipher.size(); ++i){
+std::vector<uint_fast8_t> convertStates(std::vector <std::vector<std::vector<uint_fast8_t> > > states){
+    std::vector<uint_fast8_t> statesLine;
+    for (size_t i = 0; i != states.size(); ++i){
         for(size_t j = 0; j != 16; ++j){
-            ciphertext.push_back(cipher[i][j%4][j/4]);
+            statesLine.push_back(states[i][j%4][j/4]);
         }
     }
+    return statesLine;
 }
+
 void outputState(const std::vector<std::vector<uint_fast8_t> >& state){
     std::cout << "\n";
     for (int i = 0; i != 4; ++i){
@@ -131,25 +135,68 @@ void outputState(const std::vector<std::vector<uint_fast8_t> >& state){
 
 void AES::encryptPlaintext(){
     keyExpansion();
-    std::vector <std::vector<std::vector<uint_fast8_t> > > cipher;
+    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
     std::vector<std::vector<uint_fast8_t> > state;
     for(size_t i = 0; i != plaintext.size(); i += 16){
-        state = calculateBlock(i);
+        state = calculateBlock(i, plaintext);
         addRoundKey(state, 0);
         for (size_t round = 1; round != Nr; ++ round){
             subBytes(state);
             shiftRows(state);
-            mixColumns(state);            
+            mixColumns(state);
             addRoundKey(state, round*16);
-        }       
-        subBytes(state);        
-        shiftRows(state);        
-        addRoundKey(state, 16*Nr);        
-        cipher.push_back(state);
+        }
+        subBytes(state);
+        shiftRows(state);
+        addRoundKey(state, 16*Nr);
+        states.push_back(state);
     }
-    calculateCiphertext(cipher);
+    ciphertext = convertStates(states);
 };
+
+void invShiftRows(std::vector<std::vector<uint_fast8_t> > &state){
+    // implements inversive cyclical shift transformation
+    rotWord(state[1]); rotWord(state[1]); rotWord(state[1]);
+    rotWord(state[2]); rotWord(state[2]);
+    rotWord(state[3]);
+}
+
+void AES::invSubBytes(std::vector<std::vector<uint_fast8_t> > &state){
+    // replace each byte using inversive SBox
+    for (size_t i = 0; i != 4; ++i){
+        for (size_t j = 0; j != 4; ++j){
+            state[i][j] = invSBox[state[i][j] / 16][state[i][j] % 16];
+        }
+    }
+}
+
+void invMixColumns(std::vector<std::vector<uint_fast8_t> > &state){
+    std::vector <std::vector<uint_fast8_t> > res(4, std::vector<uint_fast8_t>(4,0));
+    for (size_t j = 0; j != 4; ++j){
+        res[0][j] = GMul(0x0e, state[0][j]) ^ GMul(0x0b, state[1][j]) ^ GMul(0x0d, state[2][j]) ^ GMul(0x09, state[3][j]);
+        res[1][j] = GMul(0x09, state[0][j]) ^ GMul(0x0e, state[1][j]) ^ GMul(0x0b, state[2][j]) ^ GMul(0x0d, state[3][j]);
+        res[2][j] = GMul(0x0d, state[0][j]) ^ GMul(0x09, state[1][j]) ^ GMul(0x0e, state[2][j]) ^ GMul(0x0b, state[3][j]);
+        res[3][j] = GMul(0x0b, state[0][j]) ^ GMul(0x0d, state[1][j]) ^ GMul(0x09, state[2][j]) ^ GMul(0x0e, state[3][j]);
+    }
+    state = res;
+}
 
 void AES::decryptCiphertext(){
+    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
+    std::vector<std::vector<uint_fast8_t> > state;
+    for(size_t i = 0; i != plaintext.size(); i += 16){
+        state = calculateBlock(i, ciphertext);
+        addRoundKey(state, 16*Nr);
+        for (size_t round = Nr-1; round != 0; -- round){
+            invShiftRows(state);
+            invSubBytes(state);
+            addRoundKey(state, round*16);
+            invMixColumns(state);
+        }
+        invShiftRows(state);
+        invSubBytes(state);
+        addRoundKey(state, 0);
+        states.push_back(state);
+    }
+    decryptedCiphertext = convertStates(states);
 };
-
