@@ -8,11 +8,12 @@ int main()
 
     instance.enterPlaintextAsHex();
     instance.requestKey();
+
     instance.encryptPlaintext();
     instance.outputCiphertext();
 
-    //instance.decryptCiphertext();
-    //instance.outputPlaintext();
+    instance.decryptCiphertext();
+    instance.outputDecryptedCiphertext();
 
     return 0;
 }
