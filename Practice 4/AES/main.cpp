@@ -2,8 +2,7 @@
 #include "AES.h"
 
 
-int main()
-{
+void testViaHex(){
     AES instance;
 
     instance.enterPlaintextAsHex();
@@ -13,7 +12,29 @@ int main()
     instance.outputCiphertext();
 
     instance.decryptCiphertext();
+    instance.outputDecryptedCiphertextAsHex();
+
+}
+
+void testViaASCII(){
+    AES instance;
+
+    instance.enterPlaintext();
+    instance.requestKey();
+
+    instance.encryptPlaintext();
+    instance.outputCiphertext();
+
+    instance.decryptCiphertext();
     instance.outputDecryptedCiphertext();
+
+}
+
+int main()
+{
+
+    testViaHex();
+    testViaASCII();
 
     return 0;
 }
