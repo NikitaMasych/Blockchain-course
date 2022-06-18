@@ -124,17 +124,18 @@ std::vector<uint_fast8_t> convertStates(std::vector <std::vector<std::vector<uin
     return statesLine;
 }
 
-void outputState(const std::vector<std::vector<uint_fast8_t> >& state){
-    std::cout << "\n";
-    for (int i = 0; i != 4; ++i){
-        for (int j = 0; j != 4; ++j)
-            std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(state[j][i]);
+void AES::paddingPKCS7(){
+    // implements PKCS#7 padding
+    AES::paddedBytes = 16 - plaintext.size() % 16;
+    for (size_t i = 0; i != AES::paddedBytes; ++i){
+        plaintext.push_back(static_cast<uint_fast8_t>(AES::paddedBytes));
     }
-    std::cout << "\n";
 }
 
 void AES::encryptPlaintext(){
     keyExpansion();
+    // add padding to make sure plaintext is divisible to 16 bytes blocks
+    paddingPKCS7();
     std::vector <std::vector<std::vector<uint_fast8_t> > > states;
     std::vector<std::vector<uint_fast8_t> > state;
     for(size_t i = 0; i != plaintext.size(); i += 16){
@@ -199,4 +200,8 @@ void AES::decryptCiphertext(){
         states.push_back(state);
     }
     decryptedCiphertext = convertStates(states);
+    // remove padded bytes:
+    decryptedCiphertext = std::vector<uint_fast8_t>(decryptedCiphertext.begin(),
+                                                    decryptedCiphertext.end() - paddedBytes);
 };
+
