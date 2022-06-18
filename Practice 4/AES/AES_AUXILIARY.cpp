@@ -74,9 +74,6 @@ void AES::enterPlaintext(){
     std::string str;
     try{
         std::getline(std::cin, str);
-        if (str.size() % 16 != 0){
-            throw std::invalid_argument("Plaintext length is not divisible by 16!\n");
-        }
         for (uint_fast8_t c : str){
             if (c > 127)
                 throw std::invalid_argument("Invalid character detected!\n");
@@ -91,6 +88,26 @@ void AES::enterPlaintext(){
     }
 };
 
+void AES::enterPlaintextAsHex(){
+    std::cout << "Enter plaintext in hex: ";
+    std::string str;
+    try{
+        std::getline(std::cin, str);
+        std::vector<uint_fast8_t> res;
+        for (size_t i = 0; i < str.length(); i += 2){
+            if (!( isxdigit(str[i]) && isxdigit(str[i+1])))
+                throw std::invalid_argument("Not hexadecimal character detected!\n");
+            std::string byte = str.substr(i, 2);
+            res.push_back(static_cast<uint_fast8_t>(std::stoul(byte, nullptr, 16)));
+        }
+        plaintext = res;
+    }
+    catch(std::exception& e){
+        std::cerr << e.what();
+        enterPlaintextAsHex();
+    }
+};
+
 void AES::outputExpandedKeys(){
     for(size_t i = 0; i != key.size(); i += 4){
         std::cout << std::dec << "Key " << i/4 << " : ";
@@ -102,12 +119,18 @@ void AES::outputExpandedKeys(){
     }
 }
 
-void AES::outputDecryptedCiphertext(){
+void AES::outputDecryptedCiphertextAsHex(){
     std::cout << "Decrypted ciphertext: ";
-    for (unsigned char c: decryptedCiphertext)std::cout <<
+    for (uint_fast8_t c: decryptedCiphertext)std::cout <<
         std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(c);
     std::cout << '\n';
 };
+
+void AES::outputDecryptedCiphertext(){
+    std::cout << "Decrypted ciphertext: ";
+    for (unsigned char c: decryptedCiphertext)
+        std::cout << c;
+}
 
 void AES::outputCiphertext(){
     std::cout << "Ciphertext: ";
@@ -173,25 +196,3 @@ AES::AES(){
     initializeSBox();
     initializeInvSBox();
 }
-
-void AES::enterPlaintextAsHex(){
-    std::cout << "Enter plaintext in hex: ";
-    std::string str;
-    try{
-        std::getline(std::cin, str);
-        std::vector<uint_fast8_t> res;
-        // doubling 16 bytes block due to hex representation
-        if (str.length() % 32 != 0) throw std::invalid_argument("Invalid plaintext size!\n");
-        for (size_t i = 0; i < str.length(); i += 2){
-            if (!( isxdigit(str[i]) && isxdigit(str[i+1])))
-                throw std::invalid_argument("Not hexadecimal character detected!\n");
-            std::string byte = str.substr(i, 2);
-            res.push_back(static_cast<uint_fast8_t>(std::stoul(byte, nullptr, 16)));
-        }
-        plaintext = res;
-    }
-    catch(std::exception& e){
-        std::cerr << e.what();
-        enterPlaintextAsHex();
-    }
-};
