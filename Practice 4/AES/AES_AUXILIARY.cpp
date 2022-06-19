@@ -94,6 +94,8 @@ void AES::enterPlaintextAsHex(){
     try{
         std::getline(std::cin, str);
         std::vector<uint_fast8_t> res;
+        if (str.size() % 2 == 1)
+            throw std::invalid_argument("String contains incomplete byte!\n");
         for (size_t i = 0; i < str.length(); i += 2){
             if (!( isxdigit(str[i]) && isxdigit(str[i+1])))
                 throw std::invalid_argument("Not hexadecimal character detected!\n");
@@ -111,10 +113,9 @@ void AES::enterPlaintextAsHex(){
 void AES::outputExpandedKeys(){
     for(size_t i = 0; i != key.size(); i += 4){
         std::cout << std::dec << "Key " << i/4 << " : ";
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(key[i]);
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(key[i+1]);
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(key[i+2]);
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<uint_fast16_t>(key[i+3]);
+        for(size_t j = 0; j != 4; ++j)
+            std::cout << std::setw(2) << std::setfill('0') << std::hex <<
+                                    static_cast<uint_fast16_t>(key[i+j]);
         std::cout << '\n';
     }
 }
@@ -195,4 +196,5 @@ void AES::initializeInvSBox(){
 AES::AES(){
     initializeSBox();
     initializeInvSBox();
+    generateIV();
 }
