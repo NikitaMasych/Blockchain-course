@@ -1,5 +1,6 @@
 #include <iostream>
 #include <iomanip>
+#include <random>
 #include "AES.h"
 
 
@@ -132,25 +133,49 @@ void AES::paddingPKCS7(){
     }
 }
 
-void AES::encryptPlaintext(){
-    keyExpansion();
-    // add padding to make sure plaintext is divisible to 16 bytes blocks
-    paddingPKCS7();
-    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
-    std::vector<std::vector<uint_fast8_t> > state;
-    for(size_t i = 0; i != plaintext.size(); i += 16){
-        state = calculateBlock(i, plaintext);
-        addRoundKey(state, 0);
-        for (size_t round = 1; round != Nr; ++ round){
-            subBytes(state);
-            shiftRows(state);
-            mixColumns(state);
-            addRoundKey(state, round*16);
-        }
+void AES::generateIV(){
+    std::random_device rd;
+    std::mt19937 e{rd()};
+    std::uniform_int_distribution<uint_fast8_t> dist(0,255);
+    std::vector<uint_fast8_t> IV(16);
+    for(size_t i = 0; i != 16; ++i)
+        IV[i] = dist(rd);
+    AES::IV = IV;
+}
+
+std::vector<std::vector<uint_fast8_t> > AES::encryptBlock(
+            std::vector<std::vector<uint_fast8_t> > state){
+    addRoundKey(state, 0);
+    for (size_t round = 1; round != Nr; ++ round){
         subBytes(state);
         shiftRows(state);
-        addRoundKey(state, 16*Nr);
-        states.push_back(state);
+        mixColumns(state);
+        addRoundKey(state, round*16);
+    }
+    subBytes(state);
+    shiftRows(state);
+    addRoundKey(state, 16*Nr);
+    return state;
+}
+
+std::vector<std::vector<uint_fast8_t> > XORVectors(
+                std::vector<std::vector<uint_fast8_t> > state,
+                const std::vector<std::vector<uint_fast8_t> >& term){
+    std::vector<std::vector<uint_fast8_t> > res(4, std::vector<uint_fast8_t>(4,0));
+    for (size_t i = 0; i != 4; ++i)
+        for (size_t j = 0; j != 4; ++j)
+            res[i][j] = state[i][j] ^ term[i][j];
+    return res;
+}
+
+void AES::encryptPlaintext(){
+    keyExpansion();
+    paddingPKCS7();
+    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
+    std::vector<std::vector<uint_fast8_t> > previous = calculateBlock(0, IV);
+    for (size_t i = 0; i != plaintext.size(); i += 16){
+        states.push_back(encryptBlock(XORVectors(calculateBlock(i, plaintext), previous)));
+        previous = states[states.size()-1];
     }
     ciphertext = convertStates(states);
 };
@@ -182,22 +207,27 @@ void invMixColumns(std::vector<std::vector<uint_fast8_t> > &state){
     state = res;
 }
 
-void AES::decryptCiphertext(){
-    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
-    std::vector<std::vector<uint_fast8_t> > state;
-    for(size_t i = 0; i != plaintext.size(); i += 16){
-        state = calculateBlock(i, ciphertext);
-        addRoundKey(state, 16*Nr);
-        for (size_t round = Nr-1; round != 0; -- round){
-            invShiftRows(state);
-            invSubBytes(state);
-            addRoundKey(state, round*16);
-            invMixColumns(state);
-        }
+std::vector<std::vector<uint_fast8_t> > AES::decryptBlock(
+            std::vector<std::vector<uint_fast8_t> > state){
+    addRoundKey(state, 16*Nr);
+    for (size_t round = Nr-1; round != 0; -- round){
         invShiftRows(state);
         invSubBytes(state);
-        addRoundKey(state, 0);
-        states.push_back(state);
+        addRoundKey(state, round*16);
+        invMixColumns(state);
+    }
+    invShiftRows(state);
+    invSubBytes(state);
+    addRoundKey(state, 0);
+    return state;
+}
+
+void AES::decryptCiphertext(){
+    std::vector <std::vector<std::vector<uint_fast8_t> > > states;
+    std::vector<std::vector<uint_fast8_t> > previous = calculateBlock(0, IV);
+    for(size_t i = 0; i != plaintext.size(); i += 16){
+        states.push_back(XORVectors(decryptBlock(calculateBlock(i, ciphertext)), previous));
+        previous = calculateBlock(i, ciphertext);
     }
     decryptedCiphertext = convertStates(states);
     // remove padded bytes:
