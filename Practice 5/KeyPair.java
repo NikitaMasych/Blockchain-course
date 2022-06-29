@@ -1,26 +1,35 @@
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.spec.ECGenParameterSpec;
 
 public class KeyPair {
     PrivateKey privateKey;
     PublicKey publicKey;
-    public static java.security.KeyPair KeyGen(){
+
+    /**
+     * Generates private and public key via Elliptic curve
+     * Uses 256-bit prime field random Weierstrass curve.
+     */
+    public void KeyGen(){
         try {
-            KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("DSA");
-            return keyPairGen.generateKeyPair();
+            ECGenParameterSpec param = new ECGenParameterSpec("secp256r1");
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+            generator.initialize(param, new SecureRandom());
+            java.security.KeyPair keypair = generator.generateKeyPair();
+            privateKey = keypair.getPrivate();
+            publicKey = keypair.getPublic();
         }
-        catch(Exception e){
+        catch(Exception e) {
             System.out.println(e);
         }
-        return null;
-    }
-    public void printKeyPair(){
-        System.out.println("Private key: " + privateKey);
-        System.out.println("Public key: " + publicKey);
     }
     @Override
     public String toString(){
-        return new String("Private key: " + privateKey + "\nPublic key: " + publicKey);
+        return "Private key: " + privateKey + "\nPublic key: " + publicKey;
+    }
+    KeyPair(){
+        KeyGen();
     }
 }
