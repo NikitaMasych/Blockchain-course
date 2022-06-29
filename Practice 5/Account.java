@@ -5,7 +5,6 @@ public class Account {
     public byte[] openAccountID;
     public ArrayList<KeyPair> keyPairs;
     boolean voted;
-
     /**
      * Generates unique user's identifier and KeyPair
      * @param govElect is either true if election is being held
@@ -19,7 +18,6 @@ public class Account {
         openAccountID = Hash.calculateHash(accountID, "SHA-256");
         voted = false;
     }
-
     /**
      * Adds key pair to wallet
      * @param keyPair intended key pair
@@ -27,7 +25,6 @@ public class Account {
     public void addKeyPair(KeyPair keyPair){
         keyPairs.add(keyPair);
     }
-
     /**
      * Signs message with specified keyPair of user
      * @param message intended message
