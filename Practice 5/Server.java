@@ -1,11 +1,19 @@
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 public class Server {
     public static final Server INSTANCE = new Server(); // Server is singleton
     private final HashMap<byte[], KeyPair> voters = new HashMap<>();
+    public final ArrayList<String> ballotList = new ArrayList<>();
+    private final Map<String, Integer> pool = new HashMap<String, Integer>(){{
+        for (String b : ballotList) put(b, 0);
+    }};
     private Server(){
         // do something
+        setBallotList();
     }
     /**
      * Checks whether passportID is valid and user is allowed to vote.
@@ -51,5 +59,21 @@ public class Server {
      */
     public PublicKey provideEncryptionKey(byte[] address) {
         return voters.get(address).publicKey;
+    }
+    private void setBallotList(){
+        // do something
+    }
+    public void countVotes() throws Exception {
+        // wonderful code I know
+        for (Block b : Blockchain.INSTANCE.blockHistory){
+            for (Transaction tx : b.setOfTransactions){
+                for (Operation op : tx.operations){
+                    String ballot = new String(
+                            Encryption.RSA.decrypt(op.encryptedChoice, voters.get(op.account.address).privateKey),
+                            StandardCharsets.UTF_8);
+                    pool.put(ballot, pool.get(ballot) + 1);
+                }
+            }
+        }
     }
 }
