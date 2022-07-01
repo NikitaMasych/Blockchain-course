@@ -2,7 +2,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 public class Blockchain {
-    public static Blockchain INSTANCE = new Blockchain();
+    public static Blockchain INSTANCE = new Blockchain(); // Blockchain is singleton
     public ArrayList<Block> blockHistory;
     private Blockchain(){
         try {
