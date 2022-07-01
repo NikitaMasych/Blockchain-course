@@ -58,7 +58,7 @@ public class Encryption {
          * @return ciphertext.
          * @throws Exception if issues with identifying the algorithm occurred.
          */
-        public static byte[] encrypt(byte[] plaintext, PrivateKey key) throws Exception{
+        public static byte[] encrypt(byte[] plaintext, PublicKey key) throws Exception{
             // Get Cipher Instance
             Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
 
@@ -73,7 +73,7 @@ public class Encryption {
          * @return plaintext.
          * @throws Exception if issues with identifying the algorithm occurred.
          */
-        public static byte[] decrypt(byte[] ciphertext, PublicKey key) throws Exception{
+        public static byte[] decrypt(byte[] ciphertext, PrivateKey key) throws Exception{
             // Get Cipher Instance
             Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
 
