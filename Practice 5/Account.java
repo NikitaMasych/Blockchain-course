@@ -1,44 +1,62 @@
-import java.util.ArrayList;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.PublicKey;
 
 public class Account {
-    private final String accountID;
-    public byte[] openAccountID;
-    public ArrayList<KeyPair> keyPairs;
-    boolean voted;
+    public byte[] address;
+    private SecretKey IDEncryptionKey;
+    private byte[] IV;
+    private KeyPair signatureKeyPair;
+    private PublicKey choiceEncryptionKey;
+    boolean voted = false;
+
     /**
-     * Generates unique user's identifier and KeyPair
-     * @param govElect is either true if election is being held
-     *                 on government scale or false otherwise
+     * Generates user address.
+     * Generates key pair for signing and verifying.
+     * Obtains public key for encrypting the choice.
      */
-    Account(boolean govElect){
-        keyPairs = new ArrayList<KeyPair>();
-        keyPairs.add(new KeyPair());
-        if (govElect) accountID = passportID();
-        else accountID = keyPairs.get(0).publicKey.toString();
-        openAccountID = Hash.calculateHash(accountID, "SHA-256");
-        voted = false;
+    Account() throws Exception {
+        generateAddress();
+        generateSignatureKeyPair();
+        Server.INSTANCE.addUser(address);
+        getChoiceEncryptionKey();
     }
     /**
-     * Adds key pair to wallet
-     * @param keyPair intended key pair
+     * Generates user address.
+     * First, gets scanned passportID and verified eligibility to vote,
+     * if not eligible, exception is thrown.
+     * Secondary, user obtain symmetric key for AES_GBC, which is used to encrypt passportID.
+     * Lastly, encrypted ID is hashed with SHA-256, creating unique address.
+     * @throws Exception if user is restricted to vote or for encryption, hashing procedures issues.
      */
-    public void addKeyPair(KeyPair keyPair){
-        keyPairs.add(keyPair);
+    private void generateAddress() throws Exception {
+        String userID = Server.getPassportID();
+
+        IDEncryptionKey = Encryption.AES_GCM.generateSecretKey();
+        IV = Encryption.AES_GCM.generateIV();
+
+        // provably revise encoding
+        byte[] encryptedUserID = Encryption.AES_GCM.encrypt(
+                userID.getBytes(StandardCharsets.UTF_8), IDEncryptionKey, IV);
+
+        address = Hash.calculateHash(encryptedUserID, "SHA-256");
     }
     /**
-     * Signs message with specified keyPair of user
-     * @param message intended message
-     * @param keyIndex stands for keyPair index of the wallet
-     * @return signed message as an octet string
+     * Creates key pair for signing and verifying.
      */
-    public byte[] signData(String message, int keyIndex){
-        return SIGNATURE.signData(keyPairs.get(keyIndex).privateKey, message);
+    private void generateSignatureKeyPair() throws Exception {
+        signatureKeyPair = KeyPair.genKeyPairEC();
     }
     /**
-     * User scans passport and government's database returns his passport ID
-     * @return passport ID as a string
+     * Obtains public key for encrypting the choice.
      */
-    private String passportID(){
-        return "some id";
+    private void getChoiceEncryptionKey() {
+        choiceEncryptionKey = Server.INSTANCE.provideEncryptionKey(address);
+    }
+    public byte[] signData(byte[] message) throws Exception {
+        return SIGNATURE.signData(signatureKeyPair.privateKey, message);
+    }
+    public boolean verifyData(byte[] signedMessage, byte[] message) throws Exception {
+        return SIGNATURE.verifySignature(signedMessage, message, signatureKeyPair.publicKey);
     }
 }
