@@ -1,8 +1,8 @@
 import java.nio.ByteBuffer;
 public class Operation {
-    private Account account;
+    public Account account;
     private byte[] signedChoice;
-    private byte[] encryptedChoice;
+    public byte[] encryptedChoice;
 
     private Operation(){}
     public static Operation createOperation(Account sender, byte[] encryptedChoice) throws Exception {
