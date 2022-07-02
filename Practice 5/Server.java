@@ -71,6 +71,8 @@ public class Server {
                     String ballot = new String(
                             Encryption.RSA.decrypt(op.encryptedChoice, voters.get(op.account.address).privateKey),
                             StandardCharsets.UTF_8);
+                    if (pool.get(ballot) == null) // guarantees that no invalid ballots will be counted
+                        throw new Exception();
                     pool.put(ballot, pool.get(ballot) + 1);
                 }
             }
