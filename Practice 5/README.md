@@ -30,3 +30,5 @@ This approach guarantees:
 	• Fairness: no one can obtain intermediate voting results.
 	• Soundness: invalid ballots are detected and not taken into account during tallying.
 	• Completeness: All valid ballots are tallied correctly.
+	
+** c++ folder is yet incomplete, however later I will realise this protocol there in order to achieve HIGH performance and more or less real implementation of the server and databases
