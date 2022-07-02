@@ -17,4 +17,4 @@ This approach guarantees:
 	• Anonymity: no one can track user address to the particular person. 
 	• Fairness: no one can obtain intermediate voting results.
 	• Soundness: invalid ballots are detected and not taken into account during tallying.
-	• Completeness: All valid ballots are tallied correctly.
+	• Completeness: all valid ballots are tallied correctly.
